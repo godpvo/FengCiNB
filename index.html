@@ -22,7 +22,7 @@ body{height:100vh;display:flex;flex-direction:column;background:#1a1a2e;color:#e
 
 <script>
 const CONFIG={owner:'godpvo',repo:'FengCiNB',path:'content.txt',branch:'main'};
-const TOKEN='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'; // ⚠️ 建议删除重新生成
+const TOKEN='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';
 let sha=null,timer=null;
 const editor=document.getElementById('editor');
 const status=document.getElementById('status');
@@ -51,10 +51,14 @@ editor.addEventListener('input',()=>{
   clearTimeout(timer);
   timer=setTimeout(save,3000);
 });
-editor.addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='s'){e.preventDefault();save();}});
+editor.addEventListener('keydown',e=>{
+  if(e.ctrlKey&&e.key==='s'){
+    e.preventDefault();
+    save();
+  }
+});
 document.getElementById('saveBtn').addEventListener('click',save);
 load();
 </script>
 </body>
 </html>
-
