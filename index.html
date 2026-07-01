@@ -1,64 +1,327 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>文本服务器</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{height:100vh;display:flex;flex-direction:column;background:#1a1a2e;color:#eee;font-family:monospace}
-#bar{padding:8px 12px;background:#16213e;font-size:13px;display:flex;gap:10px;align-items:center}
-#bar span{flex:1}
-#editor{flex:1;width:100%;padding:12px;border:none;outline:none;background:#0f0f23;color:#dcdcdc;font-size:16px;line-height:1.6;font-family:monospace;resize:none}
-#saveBtn{padding:4px 12px;background:#e94560;color:#fff;border:none;border-radius:4px;cursor:pointer}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>纯文本服务器</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            padding: 15px 20px;
+            background: #16213e;
+            border-bottom: 1px solid #0f3460;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { font-size: 18px; color: #e94560; }
+        .status {
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 12px;
+            transition: all 0.3s;
+        }
+        .status.saved { background: #0f3460; color: #4ecca3; }
+        .status.saving { background: #e94560; color: #fff; }
+        .status.error { background: #c0392b; color: #fff; }
+        textarea {
+            flex: 1;
+            width: 100%;
+            padding: 20px;
+            border: none;
+            outline: none;
+            background: #0f0f23;
+            color: #dcdcdc;
+            font-size: 16px;
+            line-height: 1.8;
+            font-family: 'Consolas', 'Monaco', monospace;
+            resize: none;
+        }
+        .footer {
+            padding: 10px 20px;
+            background: #16213e;
+            border-top: 1px solid #0f3460;
+            font-size: 12px;
+            color: #888;
+            display: flex;
+            justify-content: space-between;
+        }
+        .btn {
+            padding: 6px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #e94560;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #c73e54; }
+        .btn-secondary {
+            background: #0f3460;
+            color: #eee;
+            margin-left: 8px;
+        }
+        .btn-secondary:hover { background: #1a4a7a; }
+        #token-input {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #16213e;
+            padding: 30px;
+            border-radius: 8px;
+            border: 1px solid #0f3460;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            z-index: 1000;
+            display: none;
+            width: 400px;
+        }
+        #token-input h3 { margin-bottom: 15px; color: #e94560; }
+        #token-input input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            background: #0f0f23;
+            color: #eee;
+        }
+        #token-input p { font-size: 12px; color: #888; margin-bottom: 15px; line-height: 1.5; }
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 999;
+            display: none;
+        }
+    </style>
 </head>
 <body>
-<div id="bar">
-  <span id="status">加载中...</span>
-  <button id="saveBtn">保存</button>
-</div>
-<textarea id="editor" placeholder="输入内容..."></textarea>
+    <div class="header">
+        <h1>📝 纯文本服务器</h1>
+        <div>
+            <span id="status" class="status saved">就绪</span>
+            <button class="btn btn-secondary" onclick="showTokenInput()">设置 Token</button>
+            <button class="btn btn-primary" onclick="manualSave()">保存</button>
+        </div>
+    </div>
+    <textarea id="editor" placeholder="开始输入内容..."></textarea>
+    <div class="footer">
+        <span id="info">按 Ctrl+S 保存 | 字符数: 0</span>
+        <span>托管于 GitHub Pages</span>
+    </div>
 
-<script>
-const CONFIG={owner:'godpvo',repo:'FengCiNB',path:'content.txt',branch:'main'};
-const TOKEN='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';
-let sha=null,timer=null;
-const editor=document.getElementById('editor');
-const status=document.getElementById('status');
+    <div class="overlay" id="overlay" onclick="hideTokenInput()"></div>
+    <div id="token-input">
+        <h3>设置 GitHub Token</h3>
+        <p>
+            1. 访问 <a href="https://github.com/settings/tokens" target="_blank" style="color:#e94560;">github.com/settings/tokens</a><br>
+            2. 点击 Generate new token (classic)<br>
+            3. 勾选 <b>repo</b> 权限<br>
+            4. 生成后复制 Token 粘贴到下方
+        </p>
+        <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxx">
+        <div style="text-align:right">
+            <button class="btn btn-secondary" onclick="hideTokenInput()">取消</button>
+            <button class="btn btn-primary" onclick="saveToken()">保存 Token</button>
+        </div>
+    </div>
 
-async function load(){
-  try{
-    const r=await fetch(`https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}?ref=${CONFIG.branch}`,{headers:{'Authorization':`token ${TOKEN}`}});
-    if(r.ok){const d=await r.json();sha=d.sha;editor.value=atob(d.content.replace(/\n/g,''));status.textContent='已加载';}
-    else if(r.status===404){status.textContent='新文件';}
-    else{status.textContent='加载失败';}
-  }catch(e){status.textContent='离线';}
-}
-async function save(){
-  if(!editor.value&&status.textContent==='新文件')return;
-  status.textContent='保存中...';
-  const body={message:`save ${new Date().toLocaleString()}`,content:btoa(unescape(encodeURIComponent(editor.value))),branch:CONFIG.branch};
-  if(sha)body.sha=sha;
-  try{
-    const r=await fetch(`https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}`,{method:'PUT',headers:{'Authorization':`token ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(r.ok){const d=await r.json();sha=d.content.sha;status.textContent='已保存';}
-    else{status.textContent='保存失败';}
-  }catch(e){status.textContent='保存失败';}
-}
-editor.addEventListener('input',()=>{
-  status.textContent='编辑中...';
-  clearTimeout(timer);
-  timer=setTimeout(save,3000);
-});
-editor.addEventListener('keydown',e=>{
-  if(e.ctrlKey&&e.key==='s'){
-    e.preventDefault();
-    save();
-  }
-});
-document.getElementById('saveBtn').addEventListener('click',save);
-load();
-</script>
+    <script>
+        // ============ 配置区 ============
+        const CONFIG = {
+            owner: 'YOUR_USERNAME',      // ← 改成你的 GitHub 用户名
+            repo: 'my-text-server',      // ← 改成你的仓库名
+            path: 'content.txt',         // 存储内容的文件路径
+            branch: 'main'
+        };
+
+        // ============ 状态管理 ============
+        let content = '';
+        let sha = null;  // 文件的 SHA，用于更新
+        let saveTimer = null;
+        const editor = document.getElementById('editor');
+        const statusEl = document.getElementById('status');
+        const infoEl = document.getElementById('info');
+
+        // ============ 初始化 ============
+        async function init() {
+            await loadContent();
+            editor.addEventListener('input', onInput);
+            editor.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    manualSave();
+                }
+            });
+        }
+
+        // ============ 加载内容 ============
+        async function loadContent() {
+            updateStatus('loading', '加载中...');
+            try {
+                const token = localStorage.getItem('github_token');
+                const headers = token ? { 'Authorization': `token ${token}` } : {};
+                
+                const response = await fetch(
+                    `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}?ref=${CONFIG.branch}`,
+                    { headers }
+                );
+
+                if (response.status === 404) {
+                    // 文件不存在，创建空文件
+                    content = '';
+                    sha = null;
+                    editor.value = '';
+                    updateStatus('saved', '新文件');
+                } else if (response.ok) {
+                    const data = await response.json();
+                    sha = data.sha;
+                    content = atob(data.content.replace(/\n/g, ''));  // Base64 解码
+                    editor.value = content;
+                    updateStatus('saved', '已加载');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (err) {
+                console.error('加载失败:', err);
+                updateStatus('error', '加载失败');
+                // 尝试从 localStorage 恢复
+                const cached = localStorage.getItem('cached_content');
+                if (cached) {
+                    editor.value = cached;
+                    updateStatus('error', '离线模式');
+                }
+            }
+            updateInfo();
+        }
+
+        // ============ 输入处理（自动保存） ============
+        function onInput() {
+            updateInfo();
+            updateStatus('saving', '编辑中...');
+            
+            // 延迟保存，避免频繁请求
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(() => {
+                autoSave();
+            }, 3000);  // 3秒无输入后自动保存
+        }
+
+        // ============ 自动保存 ============
+        async function autoSave() {
+            const token = localStorage.getItem('github_token');
+            if (!token) {
+                updateStatus('error', '未设置 Token');
+                // 先存到 localStorage 做备份
+                localStorage.setItem('cached_content', editor.value);
+                return;
+            }
+            await doSave(token);
+        }
+
+        // ============ 手动保存 ============
+        async function manualSave() {
+            const token = localStorage.getItem('github_token');
+            if (!token) {
+                showTokenInput();
+                return;
+            }
+            updateStatus('saving', '保存中...');
+            await doSave(token);
+        }
+
+        // ============ 执行保存 ============
+        async function doSave(token) {
+            const newContent = editor.value;
+            const base64Content = btoa(unescape(encodeURIComponent(newContent)));  // UTF-8 兼容的 Base64
+
+            const body = {
+                message: `Update content - ${new Date().toLocaleString('zh-CN')}`,
+                content: base64Content,
+                branch: CONFIG.branch
+            };
+
+            if (sha) {
+                body.sha = sha;  // 更新现有文件需要 SHA
+            }
+
+            try {
+                const response = await fetch(
+                    `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}`,
+                    {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `token ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(body)
+                    }
+                );
+
+                if (response.ok) {
+                    const data = await response.json();
+                    sha = data.content.sha;  // 更新 SHA
+                    content = newContent;
+                    localStorage.setItem('cached_content', newContent);
+                    updateStatus('saved', '已保存');
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || `HTTP ${response.status}`);
+                }
+            } catch (err) {
+                console.error('保存失败:', err);
+                updateStatus('error', '保存失败');
+                localStorage.setItem('cached_content', newContent);  // 本地备份
+            }
+        }
+
+        // ============ Token 管理 ============
+        function showTokenInput() {
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('token-input').style.display = 'block';
+            const saved = localStorage.getItem('github_token');
+            if (saved) document.getElementById('token').value = saved;
+        }
+
+        function hideTokenInput() {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('token-input').style.display = 'none';
+        }
+
+        function saveToken() {
+            const token = document.getElementById('token').value.trim();
+            if (token) {
+                localStorage.setItem('github_token', token);
+                hideTokenInput();
+                loadContent();  // 重新加载
+            }
+        }
+
+        // ============ UI 更新 ============
+        function updateStatus(type, text) {
+            statusEl.className = `status ${type}`;
+            statusEl.textContent = text;
+        }
+
+        function updateInfo() {
+            const len = editor.value.length;
+            infoEl.textContent = `按 Ctrl+S 保存 | 字符数: ${len}`;
+        }
+
+        // 启动
+        init();
+    </script>
 </body>
 </html>
