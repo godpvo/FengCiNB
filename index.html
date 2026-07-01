@@ -2,326 +2,1296 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>纯文本服务器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>封辞独家 5.0 - 官方网站</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #1a1a2e;
-            color: #eee;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
+        :root {
+            --primary: #7c3aed;
+            --primary-light: #a78bfa;
+            --accent: #0ea5e9;
+            --accent-light: #38bdf8;
+            --bg-dark: #050508;
+            --bg-light: #f5f7fa;
+            --text-light: #e2e8f0;
+            --text-dark: #0f172a;
+            --glass-dark: rgba(255,255,255,0.03);
+            --glass-light: rgba(255,255,255,0.35);
+            --border-dark: rgba(255,255,255,0.06);
+            --border-light: rgba(255,255,255,0.5);
         }
-        .header {
-            padding: 15px 20px;
-            background: #16213e;
-            border-bottom: 1px solid #0f3460;
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow-x: hidden;
+            color: var(--text-light);
+            background: var(--bg-dark);
+            line-height: 1.6;
+        }
+
+        /* ===== 液态渐变背景 ===== */
+        .liquid-bg {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            overflow: hidden;
+            background: var(--bg-dark);
+        }
+        .liquid-bg .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.5;
+            animation: blobMove 20s ease-in-out infinite;
+        }
+        .blob-1 {
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(124,58,237,0.4), transparent 70%);
+            top: -10%; left: -10%;
+            animation-delay: 0s;
+        }
+        .blob-2 {
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(14,165,233,0.3), transparent 70%);
+            top: 40%; right: -15%;
+            animation-delay: -5s;
+        }
+        .blob-3 {
+            width: 400px; height: 400px;
+            background: radial-gradient(circle, rgba(167,139,250,0.35), transparent 70%);
+            bottom: -10%; left: 30%;
+            animation-delay: -10s;
+        }
+        .blob-4 {
+            width: 350px; height: 350px;
+            background: radial-gradient(circle, rgba(56,189,248,0.25), transparent 70%);
+            top: 20%; left: 50%;
+            animation-delay: -15s;
+        }
+        @keyframes blobMove {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(50px, -30px) scale(1.1); }
+            50% { transform: translate(-30px, 50px) scale(0.95); }
+            75% { transform: translate(20px, 20px) scale(1.05); }
+        }
+
+        /* 噪点纹理叠加 */
+        .noise-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+            pointer-events: none;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+
+        /* ===== 导航栏 ===== */
+        .navbar {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            z-index: 1000;
+            padding: 16px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            transition: all 0.4s ease;
         }
-        .header h1 { font-size: 18px; color: #e94560; }
-        .status {
-            font-size: 12px;
-            padding: 4px 12px;
-            border-radius: 12px;
-            transition: all 0.3s;
+        .navbar.scrolled {
+            background: rgba(5,5,8,0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding: 12px 24px;
         }
-        .status.saved { background: #0f3460; color: #4ecca3; }
-        .status.saving { background: #e94560; color: #fff; }
-        .status.error { background: #c0392b; color: #fff; }
-        textarea {
-            flex: 1;
-            width: 100%;
-            padding: 20px;
-            border: none;
-            outline: none;
-            background: #0f0f23;
-            color: #dcdcdc;
-            font-size: 16px;
-            line-height: 1.8;
-            font-family: 'Consolas', 'Monaco', monospace;
-            resize: none;
-        }
-        .footer {
-            padding: 10px 20px;
-            background: #16213e;
-            border-top: 1px solid #0f3460;
-            font-size: 12px;
-            color: #888;
+        .nav-brand {
             display: flex;
-            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
         }
-        .btn {
-            padding: 6px 16px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
+        .nav-brand-icon {
+            width: 40px; height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 900;
+            color: white;
+            box-shadow: 0 4px 16px rgba(124,58,237,0.3);
+        }
+        .nav-brand-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-light);
+            letter-spacing: 2px;
+        }
+        .nav-brand-text span {
+            color: var(--primary-light);
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+        }
+        .nav-links a {
+            color: rgba(226,232,240,0.7);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary-light), var(--accent-light));
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        .nav-links a:hover {
+            color: var(--text-light);
+        }
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+        .nav-download-btn {
+            padding: 10px 24px;
+            border-radius: 24px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
             font-size: 13px;
-            transition: all 0.2s;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(124,58,237,0.3);
         }
-        .btn-primary {
-            background: #e94560;
-            color: #fff;
+        .nav-download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(124,58,237,0.4);
         }
-        .btn-primary:hover { background: #c73e54; }
-        .btn-secondary {
-            background: #0f3460;
-            color: #eee;
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-light);
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        /* ===== 主内容区 ===== */
+        .main-content {
+            position: relative;
+            z-index: 10;
+        }
+
+        /* ===== Hero 区域 ===== */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 100px 24px 60px;
+            position: relative;
+        }
+        .hero-inner {
+            max-width: 1200px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+        .hero-left {
+            opacity: 0;
+            transform: translateY(40px);
+            animation: fadeUp 1s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
+        }
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 24px;
+            background: rgba(124,58,237,0.1);
+            border: 1px solid rgba(124,58,237,0.2);
+            color: var(--primary-light);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            margin-bottom: 24px;
+        }
+        .hero-badge .dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+        .hero-title {
+            font-size: 56px;
+            font-weight: 900;
+            line-height: 1.15;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #f8fafc 0%, #a78bfa 50%, #38bdf8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero-title .version {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-light);
+            -webkit-text-fill-color: var(--primary-light);
             margin-left: 8px;
         }
-        .btn-secondary:hover { background: #1a4a7a; }
-        #token-input {
-            position: fixed;
-            top: 50%;
-            left: 50%;
+        .hero-desc {
+            font-size: 18px;
+            color: rgba(226,232,240,0.7);
+            line-height: 1.8;
+            margin-bottom: 40px;
+            max-width: 480px;
+        }
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .btn-primary {
+            padding: 16px 40px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 8px 32px rgba(124,58,237,0.35);
+        }
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 16px 48px rgba(124,58,237,0.45);
+        }
+        .btn-secondary {
+            padding: 16px 40px;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.05);
+            color: var(--text-light);
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-decoration: none;
+            border: 1px solid rgba(255,255,255,0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(10px);
+        }
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.2);
+            transform: translateY(-3px);
+        }
+        .hero-right {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transform: translateY(40px);
+            animation: fadeUp 1s cubic-bezier(0.16, 1, 0.3, 1) 0.6s forwards;
+        }
+        .hero-phone-mockup {
+            position: relative;
+            width: 280px;
+            height: 560px;
+        }
+        .phone-frame {
+            width: 100%; height: 100%;
+            border-radius: 40px;
+            background: linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 
+                0 0 0 1px rgba(255,255,255,0.05) inset,
+                0 40px 80px rgba(0,0,0,0.4),
+                0 0 100px rgba(124,58,237,0.15);
+            padding: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+        .phone-screen {
+            width: 100%; height: 100%;
+            border-radius: 32px;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .phone-notch {
+            position: absolute;
+            top: 0; left: 50%;
+            transform: translateX(-50%);
+            width: 120px; height: 28px;
+            background: #000;
+            border-radius: 0 0 16px 16px;
+            z-index: 10;
+        }
+        .phone-logo-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+        .phone-logo-box {
+            width: 100px; height: 100px;
+            border-radius: 28px;
+            background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(14,165,233,0.2));
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            font-weight: 900;
+            color: white;
+            box-shadow: 0 8px 32px rgba(124,58,237,0.3);
+        }
+        .phone-brand {
+            font-size: 22px;
+            font-weight: 800;
+            color: white;
+            letter-spacing: 4px;
+        }
+        .phone-version {
+            font-size: 12px;
+            color: var(--primary-light);
+            font-weight: 600;
+            letter-spacing: 3px;
+            padding: 6px 16px;
+            border-radius: 20px;
+            background: rgba(124,58,237,0.15);
+            border: 1px solid rgba(124,58,237,0.2);
+        }
+        .phone-glow {
+            position: absolute;
+            width: 200px; height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(124,58,237,0.3), transparent 70%);
+            top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            background: #16213e;
-            padding: 30px;
-            border-radius: 8px;
-            border: 1px solid #0f3460;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            z-index: 1000;
-            display: none;
-            width: 400px;
+            animation: glowPulse 4s ease-in-out infinite;
         }
-        #token-input h3 { margin-bottom: 15px; color: #e94560; }
-        #token-input input {
+        @keyframes glowPulse {
+            0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.2); }
+        }
+        .phone-float {
+            animation: phoneFloat 6s ease-in-out infinite;
+        }
+        @keyframes phoneFloat {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(2deg); }
+        }
+
+        /* ===== 特性区域 ===== */
+        .features {
+            padding: 120px 24px;
+            position: relative;
+        }
+        .section-header {
+            text-align: center;
+            margin-bottom: 80px;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        .section-header.visible {
+            animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .section-label {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            background: rgba(124,58,237,0.1);
+            border: 1px solid rgba(124,58,237,0.2);
+            color: var(--primary-light);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 3px;
+            margin-bottom: 16px;
+        }
+        .section-title {
+            font-size: 42px;
+            font-weight: 800;
+            color: var(--text-light);
+            margin-bottom: 16px;
+        }
+        .section-desc {
+            font-size: 18px;
+            color: rgba(226,232,240,0.6);
+            max-width: 560px;
+            margin: 0 auto;
+        }
+        .features-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        .feature-card {
+            padding: 40px 32px;
+            border-radius: 24px;
+            background: linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+            border: 1px solid rgba(255,255,255,0.06);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        .feature-card.visible {
+            animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .feature-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(124,58,237,0.3);
+            box-shadow: 0 24px 48px rgba(0,0,0,0.3), 0 0 60px rgba(124,58,237,0.1);
+        }
+        .feature-icon {
+            width: 56px; height: 56px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(14,165,233,0.2));
+            border: 1px solid rgba(124,58,237,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 24px;
+            transition: all 0.3s ease;
+        }
+        .feature-card:hover .feature-icon {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 8px 24px rgba(124,58,237,0.2);
+        }
+        .feature-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-light);
+            margin-bottom: 12px;
+        }
+        .feature-desc {
+            font-size: 14px;
+            color: rgba(226,232,240,0.6);
+            line-height: 1.7;
+        }
+
+        /* ===== 截图展示 ===== */
+        .screenshots {
+            padding: 120px 24px;
+            position: relative;
+            overflow: hidden;
+        }
+        .screenshots-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+        .screenshot-item {
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+            aspect-ratio: 9/16;
+            background: linear-gradient(180deg, #1a1a2e, #0f0f1a);
+            border: 1px solid rgba(255,255,255,0.08);
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            opacity: 0;
+            transform: translateY(40px) scale(0.95);
+        }
+        .screenshot-item.visible {
+            animation: fadeUpScale 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes fadeUpScale {
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .screenshot-item:hover {
+            transform: translateY(-12px) scale(1.02);
+            box-shadow: 0 32px 64px rgba(0,0,0,0.4), 0 0 60px rgba(124,58,237,0.15);
+            border-color: rgba(124,58,237,0.3);
+            z-index: 10;
+        }
+        .screenshot-item img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+        .screenshot-item:hover img {
+            transform: scale(1.05);
+        }
+        .screenshot-overlay {
+            position: absolute;
+            bottom: 0; left: 0;
             width: 100%;
-            padding: 10px;
-            margin-bottom: 15px;
-            border: 1px solid #0f3460;
-            border-radius: 4px;
-            background: #0f0f23;
-            color: #eee;
+            padding: 20px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            transform: translateY(100%);
+            transition: transform 0.4s ease;
         }
-        #token-input p { font-size: 12px; color: #888; margin-bottom: 15px; line-height: 1.5; }
-        .overlay {
+        .screenshot-item:hover .screenshot-overlay {
+            transform: translateY(0);
+        }
+        .screenshot-overlay h4 {
+            font-size: 14px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 4px;
+        }
+        .screenshot-overlay p {
+            font-size: 12px;
+            color: rgba(255,255,255,0.7);
+        }
+        .screenshot-placeholder {
+            width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: rgba(255,255,255,0.3);
+        }
+        .screenshot-placeholder .ph-icon {
+            font-size: 48px;
+            opacity: 0.5;
+        }
+        .screenshot-placeholder .ph-text {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        /* ===== 下载区域 ===== */
+        .download {
+            padding: 120px 24px;
+            position: relative;
+        }
+        .download-card {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 48px;
+            border-radius: 32px;
+            background: linear-gradient(145deg, rgba(124,58,237,0.1), rgba(14,165,233,0.05));
+            border: 1px solid rgba(124,58,237,0.2);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        .download-card.visible {
+            animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .download-card::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(124,58,237,0.1), transparent 60%);
+            animation: rotate 20s linear infinite;
+        }
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .download-card > * {
+            position: relative;
+            z-index: 2;
+        }
+        .download-icon {
+            width: 80px; height: 80px;
+            border-radius: 24px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            margin: 0 auto 24px;
+            box-shadow: 0 8px 32px rgba(124,58,237,0.3);
+            animation: iconFloat 3s ease-in-out infinite;
+        }
+        @keyframes iconFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .download-title {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--text-light);
+            margin-bottom: 12px;
+        }
+        .download-desc {
+            font-size: 16px;
+            color: rgba(226,232,240,0.6);
+            margin-bottom: 40px;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .download-info {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+        .download-info-item {
+            text-align: center;
+        }
+        .download-info-item .value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--primary-light);
+            margin-bottom: 4px;
+        }
+        .download-info-item .label {
+            font-size: 13px;
+            color: rgba(226,232,240,0.5);
+            letter-spacing: 1px;
+        }
+        .download-btn-large {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 20px 56px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 12px 40px rgba(124,58,237,0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        .download-btn-large::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        .download-btn-large:hover::before {
+            left: 100%;
+        }
+        .download-btn-large:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 60px rgba(124,58,237,0.5);
+        }
+        .download-platforms {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 32px;
+            flex-wrap: wrap;
+        }
+        .platform-tag {
+            padding: 10px 20px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(226,232,240,0.7);
+            font-size: 13px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+        .platform-tag:hover {
+            background: rgba(124,58,237,0.1);
+            border-color: rgba(124,58,237,0.3);
+            color: var(--primary-light);
+        }
+
+        /* ===== 页脚 ===== */
+        .footer {
+            padding: 60px 24px 40px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            text-align: center;
+        }
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .footer-brand-icon {
+            width: 36px; height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 900;
+            color: white;
+        }
+        .footer-brand-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-light);
+            letter-spacing: 2px;
+        }
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .footer-links a {
+            color: rgba(226,232,240,0.5);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+        .footer-links a:hover {
+            color: var(--primary-light);
+        }
+        .footer-copyright {
+            font-size: 13px;
+            color: rgba(226,232,240,0.3);
+        }
+
+        /* ===== 粒子效果 ===== */
+        #particles-canvas {
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.7);
-            z-index: 999;
-            display: none;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* ===== 滚动条 ===== */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(124,58,237,0.3);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(124,58,237,0.5);
+        }
+
+        /* ===== 通用动画 ===== */
+        @keyframes fadeUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 1024px) {
+            .hero-inner {
+                grid-template-columns: 1fr;
+                text-align: center;
+                gap: 48px;
+            }
+            .hero-left {
+                order: 2;
+            }
+            .hero-right {
+                order: 1;
+            }
+            .hero-desc {
+                margin-left: auto;
+                margin-right: auto;
+            }
+            .hero-buttons {
+                justify-content: center;
+            }
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .screenshots-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links, .nav-download-btn {
+                display: none;
+            }
+            .mobile-menu-btn {
+                display: block;
+            }
+            .hero {
+                padding: 100px 20px 40px;
+            }
+            .hero-title {
+                font-size: 36px;
+            }
+            .hero-title .version {
+                font-size: 18px;
+            }
+            .hero-desc {
+                font-size: 15px;
+            }
+            .btn-primary, .btn-secondary {
+                padding: 14px 28px;
+                font-size: 14px;
+            }
+            .hero-phone-mockup {
+                width: 220px;
+                height: 440px;
+            }
+            .features {
+                padding: 80px 20px;
+            }
+            .section-title {
+                font-size: 28px;
+            }
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+            .screenshots {
+                padding: 80px 20px;
+            }
+            .screenshots-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+            .screenshot-item {
+                aspect-ratio: 9/16;
+            }
+            .download {
+                padding: 80px 20px;
+            }
+            .download-card {
+                padding: 40px 24px;
+            }
+            .download-title {
+                font-size: 26px;
+            }
+            .download-info {
+                gap: 24px;
+            }
+            .download-info-item .value {
+                font-size: 22px;
+            }
+            .download-btn-large {
+                padding: 16px 36px;
+                font-size: 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero-title {
+                font-size: 30px;
+            }
+            .hero-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            .btn-primary, .btn-secondary {
+                width: 100%;
+                justify-content: center;
+            }
+            .screenshots-grid {
+                grid-template-columns: 1fr;
+            }
+            .download-info {
+                flex-direction: column;
+                gap: 16px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>📝 纯文本服务器</h1>
-        <div>
-            <span id="status" class="status saved">就绪</span>
-            <button class="btn btn-secondary" onclick="showTokenInput()">设置 Token</button>
-            <button class="btn btn-primary" onclick="manualSave()">保存</button>
-        </div>
+    <!-- 液态渐变背景 -->
+    <div class="liquid-bg">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+        <div class="blob blob-4"></div>
     </div>
-    <textarea id="editor" placeholder="开始输入内容..."></textarea>
-    <div class="footer">
-        <span id="info">按 Ctrl+S 保存 | 字符数: 0</span>
-        <span>托管于 GitHub Pages</span>
-    </div>
+    <div class="noise-overlay"></div>
+    <canvas id="particles-canvas"></canvas>
 
-    <div class="overlay" id="overlay" onclick="hideTokenInput()"></div>
-    <div id="token-input">
-        <h3>设置 GitHub Token</h3>
-        <p>
-            1. 访问 <a href="https://github.com/settings/tokens" target="_blank" style="color:#e94560;">github.com/settings/tokens</a><br>
-            2. 点击 Generate new token (classic)<br>
-            3. 勾选 <b>repo</b> 权限<br>
-            4. 生成后复制 Token 粘贴到下方
-        </p>
-        <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxx">
-        <div style="text-align:right">
-            <button class="btn btn-secondary" onclick="hideTokenInput()">取消</button>
-            <button class="btn btn-primary" onclick="saveToken()">保存 Token</button>
-        </div>
-    </div>
+    <!-- 导航栏 -->
+    <nav class="navbar" id="navbar">
+        <a href="#" class="nav-brand">
+            <div class="nav-brand-icon">封</div>
+            <div class="nav-brand-text">封辞独家<span>5.0</span></div>
+        </a>
+        <ul class="nav-links">
+            <li><a href="#features">功能特性</a></li>
+            <li><a href="#screenshots">界面预览</a></li>
+            <li><a href="#download">立即下载</a></li>
+        </ul>
+        <a href="https://www.123pan.cn/s/cKGHjv-fMyzv" class="nav-download-btn" target="_blank">下载软件</a>
+        <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+    </nav>
+
+    <!-- 主内容 -->
+    <main class="main-content">
+        <!-- Hero 区域 -->
+        <section class="hero">
+            <div class="hero-inner">
+                <div class="hero-left">
+                    <div class="hero-badge">
+                        <span class="dot"></span>
+                        全新版本 5.0 现已发布
+                    </div>
+                    <h1 class="hero-title">
+                        封辞独家
+                        <span class="version">5.0</span>
+                    </h1>
+                    <p class="hero-desc">
+                        全新升级，极致体验。更流畅的交互、更强大的功能、更精美的界面设计，
+                        为你带来前所未有的使用感受。每一次点击，都是一次享受。
+                    </p>
+                    <div class="hero-buttons">
+                        <a href="https://www.123pan.cn/s/cKGHjv-fMyzv" class="btn-primary" target="_blank">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            立即下载
+                        </a>
+                        <a href="#features" class="btn-secondary">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                            了解更多
+                        </a>
+                    </div>
+                </div>
+                <div class="hero-right">
+                    <div class="hero-phone-mockup phone-float">
+                        <div class="phone-frame">
+                            <div class="phone-screen">
+                                <div class="phone-notch"></div>
+                                <div class="phone-glow"></div>
+                                <div class="phone-logo-area">
+                                    <div class="phone-logo-box">封</div>
+                                    <div class="phone-brand">封辞独家</div>
+                                    <div class="phone-version">VERSION 5.0</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 特性区域 -->
+        <section class="features" id="features">
+            <div class="section-header">
+                <div class="section-label">FEATURES</div>
+                <h2 class="section-title">强大功能 全面升级</h2>
+                <p class="section-desc">精心打磨每一个细节，只为给你最极致的使用体验</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3 class="feature-title">极速响应</h3>
+                    <p class="feature-desc">采用最新优化引擎，启动速度提升 300%，操作响应零延迟，丝般顺滑的体验。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3 class="feature-title">精美界面</h3>
+                    <p class="feature-desc">全新设计语言，暗色与亮色双主题自由切换，每一个界面都经过精心打磨。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3 class="feature-title">安全可靠</h3>
+                    <p class="feature-desc">多层加密保护，本地数据安全存储，隐私保护做到极致，让你用得安心。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🚀</div>
+                    <h3 class="feature-title">性能优化</h3>
+                    <p class="feature-desc">内存占用降低 50%，后台运行更省电，长时间使用依然流畅如初。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h3 class="feature-title">多端适配</h3>
+                    <p class="feature-desc">完美适配各种屏幕尺寸，无论是手机还是平板，都能获得最佳视觉体验。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">✨</div>
+                    <h3 class="feature-title">持续更新</h3>
+                    <p class="feature-desc">开发团队持续迭代，定期推送新功能与优化，始终保持最佳状态。</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 截图展示 -->
+        <section class="screenshots" id="screenshots">
+            <div class="section-header">
+                <div class="section-label">PREVIEW</div>
+                <h2 class="section-title">界面预览</h2>
+                <p class="section-desc">直观感受封辞独家 5.0 的精美设计与流畅交互</p>
+            </div>
+            <div class="screenshots-grid">
+                <div class="screenshot-item">
+                    <div class="screenshot-placeholder">
+                        <div class="ph-icon">📱</div>
+                        <div class="ph-text">主界面截图</div>
+                    </div>
+                    <div class="screenshot-overlay">
+                        <h4>主界面</h4>
+                        <p>简洁优雅的首页设计</p>
+                    </div>
+                </div>
+                <div class="screenshot-item">
+                    <div class="screenshot-placeholder">
+                        <div class="ph-icon">🎨</div>
+                        <div class="ph-text">功能界面截图</div>
+                    </div>
+                    <div class="screenshot-overlay">
+                        <h4>功能页</h4>
+                        <p>丰富的功能模块展示</p>
+                    </div>
+                </div>
+                <div class="screenshot-item">
+                    <div class="screenshot-placeholder">
+                        <div class="ph-icon">⚙️</div>
+                        <div class="ph-text">设置界面截图</div>
+                    </div>
+                    <div class="screenshot-overlay">
+                        <h4>设置中心</h4>
+                        <p>个性化配置选项</p>
+                    </div>
+                </div>
+                <div class="screenshot-item">
+                    <div class="screenshot-placeholder">
+                        <div class="ph-icon">🔍</div>
+                        <div class="ph-text">详情界面截图</div>
+                    </div>
+                    <div class="screenshot-overlay">
+                        <h4>详情页</h4>
+                        <p>清晰的信息展示</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 下载区域 -->
+        <section class="download" id="download">
+            <div class="download-card">
+                <div class="download-icon">📦</div>
+                <h2 class="download-title">立即下载体验</h2>
+                <p class="download-desc">封辞独家 5.0 现已开放下载，即刻开启全新体验之旅</p>
+                <div class="download-info">
+                    <div class="download-info-item">
+                        <div class="value">5.0</div>
+                        <div class="label">最新版本</div>
+                    </div>
+                    <div class="download-info-item">
+                        <div class="value">2026</div>
+                        <div class="label">发布年份</div>
+                    </div>
+                    <div class="download-info-item">
+                        <div class="value">免费</div>
+                        <div class="label">下载价格</div>
+                    </div>
+                </div>
+                <a href="https://www.123pan.cn/s/cKGHjv-fMyzv" class="download-btn-large" target="_blank">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    前往 123云盘下载
+                </a>
+                <div class="download-platforms">
+                    <div class="platform-tag">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                        Android
+                    </div>
+                    <div class="platform-tag">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        Windows
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 页脚 -->
+        <footer class="footer">
+            <div class="footer-brand">
+                <div class="footer-brand-icon">封</div>
+                <div class="footer-brand-text">封辞独家 5.0</div>
+            </div>
+            <div class="footer-links">
+                <a href="#features">功能特性</a>
+                <a href="#screenshots">界面预览</a>
+                <a href="#download">立即下载</a>
+            </div>
+            <p class="footer-copyright">© 2026 封辞独家. All rights reserved.</p>
+        </footer>
+    </main>
 
     <script>
-        // ============ 配置区 ============
-        const CONFIG = {
-            owner: 'YOUR_USERNAME',      // ← 改成你的 GitHub 用户名
-            repo: 'my-text-server',      // ← 改成你的仓库名
-            path: 'content.txt',         // 存储内容的文件路径
-            branch: 'main'
+        // ===== 导航栏滚动效果 =====
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
+        });
+
+        // ===== 滚动显示动画 =====
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
         };
-
-        // ============ 状态管理 ============
-        let content = '';
-        let sha = null;  // 文件的 SHA，用于更新
-        let saveTimer = null;
-        const editor = document.getElementById('editor');
-        const statusEl = document.getElementById('status');
-        const infoEl = document.getElementById('info');
-
-        // ============ 初始化 ============
-        async function init() {
-            await loadContent();
-            editor.addEventListener('input', onInput);
-            editor.addEventListener('keydown', (e) => {
-                if (e.ctrlKey && e.key === 's') {
-                    e.preventDefault();
-                    manualSave();
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
                 }
             });
-        }
+        }, observerOptions);
 
-        // ============ 加载内容 ============
-        async function loadContent() {
-            updateStatus('loading', '加载中...');
-            try {
-                const token = localStorage.getItem('github_token');
-                const headers = token ? { 'Authorization': `token ${token}` } : {};
-                
-                const response = await fetch(
-                    `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}?ref=${CONFIG.branch}`,
-                    { headers }
-                );
+        document.querySelectorAll('.section-header, .feature-card, .screenshot-item, .download-card').forEach(el => {
+            observer.observe(el);
+        });
 
-                if (response.status === 404) {
-                    // 文件不存在，创建空文件
-                    content = '';
-                    sha = null;
-                    editor.value = '';
-                    updateStatus('saved', '新文件');
-                } else if (response.ok) {
-                    const data = await response.json();
-                    sha = data.sha;
-                    content = atob(data.content.replace(/\n/g, ''));  // Base64 解码
-                    editor.value = content;
-                    updateStatus('saved', '已加载');
-                } else {
-                    throw new Error(`HTTP ${response.status}`);
+        // ===== 粒子效果 =====
+        (function() {
+            const canvas = document.getElementById('particles-canvas');
+            const ctx = canvas.getContext('2d');
+            let width, height;
+            const particles = [];
+            const particleCount = 40;
+            const connectionDistance = 120;
+            const maxConnections = 3;
+
+            function resize() {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            }
+            resize();
+            window.addEventListener('resize', resize);
+
+            class Particle {
+                constructor() {
+                    this.reset();
                 }
-            } catch (err) {
-                console.error('加载失败:', err);
-                updateStatus('error', '加载失败');
-                // 尝试从 localStorage 恢复
-                const cached = localStorage.getItem('cached_content');
-                if (cached) {
-                    editor.value = cached;
-                    updateStatus('error', '离线模式');
+                reset() {
+                    this.x = Math.random() * width;
+                    this.y = Math.random() * height;
+                    this.size = Math.random() * 2 + 0.5;
+                    this.speedX = (Math.random() - 0.5) * 0.4;
+                    this.speedY = (Math.random() - 0.5) * 0.4;
+                    this.opacity = Math.random() * 0.3 + 0.1;
+                }
+                update() {
+                    this.x += this.speedX;
+                    this.y += this.speedY;
+                    if (this.x < 0 || this.x > width) this.speedX *= -1;
+                    if (this.y < 0 || this.y > height) this.speedY *= -1;
+                }
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(167,139,250,' + this.opacity + ')';
+                    ctx.fill();
                 }
             }
-            updateInfo();
-        }
 
-        // ============ 输入处理（自动保存） ============
-        function onInput() {
-            updateInfo();
-            updateStatus('saving', '编辑中...');
-            
-            // 延迟保存，避免频繁请求
-            clearTimeout(saveTimer);
-            saveTimer = setTimeout(() => {
-                autoSave();
-            }, 3000);  // 3秒无输入后自动保存
-        }
-
-        // ============ 自动保存 ============
-        async function autoSave() {
-            const token = localStorage.getItem('github_token');
-            if (!token) {
-                updateStatus('error', '未设置 Token');
-                // 先存到 localStorage 做备份
-                localStorage.setItem('cached_content', editor.value);
-                return;
-            }
-            await doSave(token);
-        }
-
-        // ============ 手动保存 ============
-        async function manualSave() {
-            const token = localStorage.getItem('github_token');
-            if (!token) {
-                showTokenInput();
-                return;
-            }
-            updateStatus('saving', '保存中...');
-            await doSave(token);
-        }
-
-        // ============ 执行保存 ============
-        async function doSave(token) {
-            const newContent = editor.value;
-            const base64Content = btoa(unescape(encodeURIComponent(newContent)));  // UTF-8 兼容的 Base64
-
-            const body = {
-                message: `Update content - ${new Date().toLocaleString('zh-CN')}`,
-                content: base64Content,
-                branch: CONFIG.branch
-            };
-
-            if (sha) {
-                body.sha = sha;  // 更新现有文件需要 SHA
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
             }
 
-            try {
-                const response = await fetch(
-                    `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}`,
-                    {
-                        method: 'PUT',
-                        headers: {
-                            'Authorization': `token ${token}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(body)
+            function drawConnections() {
+                for (let i = 0; i < particles.length; i++) {
+                    let connections = 0;
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        if (distance < connectionDistance && connections < maxConnections) {
+                            const opacity = (1 - distance / connectionDistance) * 0.15;
+                            ctx.beginPath();
+                            ctx.moveTo(particles[i].x, particles[i].y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.strokeStyle = 'rgba(167,139,250,' + opacity + ')';
+                            ctx.lineWidth = 0.5;
+                            ctx.stroke();
+                            connections++;
+                        }
                     }
-                );
-
-                if (response.ok) {
-                    const data = await response.json();
-                    sha = data.content.sha;  // 更新 SHA
-                    content = newContent;
-                    localStorage.setItem('cached_content', newContent);
-                    updateStatus('saved', '已保存');
-                } else {
-                    const error = await response.json();
-                    throw new Error(error.message || `HTTP ${response.status}`);
                 }
-            } catch (err) {
-                console.error('保存失败:', err);
-                updateStatus('error', '保存失败');
-                localStorage.setItem('cached_content', newContent);  // 本地备份
             }
-        }
 
-        // ============ Token 管理 ============
-        function showTokenInput() {
-            document.getElementById('overlay').style.display = 'block';
-            document.getElementById('token-input').style.display = 'block';
-            const saved = localStorage.getItem('github_token');
-            if (saved) document.getElementById('token').value = saved;
-        }
-
-        function hideTokenInput() {
-            document.getElementById('overlay').style.display = 'none';
-            document.getElementById('token-input').style.display = 'none';
-        }
-
-        function saveToken() {
-            const token = document.getElementById('token').value.trim();
-            if (token) {
-                localStorage.setItem('github_token', token);
-                hideTokenInput();
-                loadContent();  // 重新加载
+            function animate() {
+                ctx.clearRect(0, 0, width, height);
+                particles.forEach(p => {
+                    p.update();
+                    p.draw();
+                });
+                drawConnections();
+                requestAnimationFrame(animate);
             }
-        }
+            animate();
+        })();
 
-        // ============ UI 更新 ============
-        function updateStatus(type, text) {
-            statusEl.className = `status ${type}`;
-            statusEl.textContent = text;
-        }
+        // ===== 平滑滚动 =====
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
 
-        function updateInfo() {
-            const len = editor.value.length;
-            infoEl.textContent = `按 Ctrl+S 保存 | 字符数: ${len}`;
+        // ===== 移动端菜单 =====
+        function toggleMobileMenu() {
+            alert('移动端菜单功能 - 可在此添加展开菜单逻辑');
         }
-
-        // 启动
-        init();
     </script>
 </body>
 </html>
